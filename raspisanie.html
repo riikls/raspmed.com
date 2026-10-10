@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Расписание занятий</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#EDF1F0; --surface:#FFFFFF; --ink:#13242B; --muted:#5B6B72; --line:#D3DCDA;
+  --accent:#1B5FC1; --accent-ink:#FFFFFF; --today:#D93A74;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1A1E; --surface:#16252B; --ink:#E6EEF0; --muted:#8FA2A9; --line:#27393F;
+    --accent:#6EA2F0; --accent-ink:#0F1A1E; --today:#FF7AA2;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1A1E; --surface:#16252B; --ink:#E6EEF0; --muted:#8FA2A9; --line:#27393F;
+  --accent:#6EA2F0; --accent-ink:#0F1A1E; --today:#FF7AA2;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Onest",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  font-size:16px; line-height:1.4;
+}
+button,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1240px;margin:0 auto;padding:20px 16px 48px}
+
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:18px}
+h1{margin:0;font-size:clamp(26px,4.4vw,40px);line-height:1.05;font-weight:700;letter-spacing:-.02em}
+.sub{margin:6px 0 0;color:var(--muted);font-size:15px}
+.btn{
+  background:var(--ink);color:var(--bg);border:0;border-radius:6px;padding:9px 14px;
+  font-weight:600;cursor:pointer;
+}
+.btn:hover{opacity:.88}
+
+.weeks{
+  display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;margin-bottom:6px;
+  scrollbar-width:thin;
+}
+.wk{
+  flex:0 0 auto;min-width:74px;text-align:left;cursor:pointer;
+  background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:7px 10px;
+}
+.wk b{display:block;font-size:17px;line-height:1.1}
+.wk span{display:block;font-size:12px;color:var(--muted);margin-top:2px;white-space:nowrap}
+.wk[aria-current="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.wk[aria-current="true"] span{color:inherit;opacity:.85}
+.wk.now:not([aria-current="true"]){border-color:var(--today);box-shadow:inset 0 -3px 0 var(--today)}
+
+.filters{display:flex;flex-wrap:wrap;gap:14px 20px;align-items:center;margin:8px 0 18px}
+.filters label{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)}
+.filters select{
+  background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:7px 10px;color:var(--ink);
+}
+
+.tabs{display:none;gap:6px;margin-bottom:12px}
+.tab{
+  flex:1;cursor:pointer;background:var(--surface);border:1px solid var(--line);border-radius:6px;
+  padding:7px 0;text-align:center;line-height:1.15;
+}
+.tab b{display:block;font-size:15px}
+.tab span{font-size:12px;color:var(--muted)}
+.tab[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.tab[aria-selected="true"] span{color:inherit;opacity:.85}
+.tab.today:not([aria-selected="true"]){border-color:var(--today)}
+
+.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;align-items:start}
+.day{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.day.today{border-color:var(--today);box-shadow:0 0 0 1px var(--today)}
+.dh{display:flex;align-items:baseline;justify-content:space-between;padding:11px 12px 9px;border-bottom:1px solid var(--line)}
+.dh b{font-size:17px}
+.dh span{color:var(--muted);font-size:14px}
+.day.today .dh span{color:var(--today);font-weight:600}
+.empty{padding:18px 12px;color:var(--muted);font-size:14px}
+
+.lesson{
+  display:grid;grid-template-columns:48px 1fr;gap:10px;padding:10px 12px 10px 10px;
+  border-bottom:1px solid var(--line);position:relative;
+  border-left:4px solid var(--c);
+}
+.lesson:last-child{border-bottom:0}
+.lesson.now{background:color-mix(in srgb,var(--accent) 12%,var(--surface))}
+.t{font-variant-numeric:tabular-nums;font-size:13px;line-height:1.25;color:var(--muted)}
+.t b{display:block;color:var(--ink);font-weight:600}
+.s{font-weight:600;line-height:1.25}
+.m{margin-top:3px;display:flex;flex-wrap:wrap;gap:4px 8px;font-size:13px;color:var(--muted)}
+.chip{
+  border:1px solid var(--line);border-radius:4px;padding:0 6px;font-size:12px;color:var(--ink);
+  background:color-mix(in srgb,var(--c) 14%,transparent);
+}
+.live{color:var(--accent);font-weight:600}
+
+footer{margin-top:28px;color:var(--muted);font-size:13px}
+
+@media (max-width:899px){
+  .tabs{display:flex}
+  .grid{grid-template-columns:1fr}
+  .day:not(.active){display:none}
+  .dh{display:none}
+  .lesson{grid-template-columns:52px 1fr}
+}
+@media (prefers-reduced-motion:no-preference){
+  .lesson,.day{transition:background .15s}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Расписание занятий</h1>
+      <p class="sub" id="sub"></p>
+    </div>
+    <button class="btn" id="todayBtn" type="button">К сегодняшнему дню</button>
+  </header>
+
+  <nav class="weeks" id="weeks" aria-label="Недели"></nav>
+
+  <div class="filters">
+    <label>Подгруппа
+      <select id="fSub">
+        <option value="all">Все</option>
+        <option value="1">1</option>
+        <option value="2">2</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="tabs" id="tabs" role="tablist" aria-label="Дни недели"></div>
+  <main class="grid" id="grid"></main>
+
+</div>
+
+<script>
+/* ---------- Данные ---------- */
+const M = {
+  khc: `15.30-16.15|кураторский час|`,
+  tail_ps: `16.25-18.15|психология|4412|1
+16.25-18.15|анатомия|215|2`,
+  tail_an: `16.25-18.15|анатомия|215|1
+16.25-18.15|психология|4412|2`,
+
+  mon1: `9.50-11.30|анатомия|449
+11.50-13.30|СД лекция|449
+13.40-15.20|защита от ЧС|449
+15.30-17.10|ОЗ и ЗО|2216|1
+15.30-17.10|психология|4412|2
+17.20-18.05|инф. час|`,
+  mon2: `9.50-11.30|анатомия|449
+11.50-13.30|СД лекция|449
+13.40-15.20|защита от ЧС|449
+15.30-17.10|психология|4412|1
+15.30-17.10|латинский|215|2
+17.20-18.05|инф. час|`,
+  mon3: `9.50-11.30|анатомия|449
+11.50-13.30|СД лекция|449
+13.40-15.20|психология|449
+15.30-17.10|ОЗ и ЗО|2216|1
+15.30-17.10|психология|4412|2
+17.20-18.05|инф. час|`,
+  mon4: `9.50-11.30|анатомия|449
+11.50-13.30|осн. права|449
+13.40-15.20|психология|449
+15.30-17.10|ОЗ и ЗО|2216|1
+15.30-17.10|психология|4412|2
+17.20-18.05|инф. час|`,
+  mon5: `9.50-11.30|анатомия|449
+11.50-13.30|осн. права|449
+13.40-15.20|психология|449
+15.30-17.10|латинский|215|1
+15.30-17.10|ОЗ и ЗО|2216|2
+17.20-18.05|инф. час|`,
+  mon6: `9.50-11.30|анатомия|449
+11.50-13.30|осн. права|449
+13.40-15.20|защита от ЧС|449
+15.30-17.10|ОЗ и ЗО|2216|1
+15.30-17.10|латинский|4412|2
+17.20-18.05|инф. час|`,
+  mon7: `9.50-11.30|анатомия|449
+11.50-13.30|осн. права|449
+13.40-15.20|психология|449
+15.30-17.10|психология|4412|1
+15.30-17.10|ОЗ и ЗО|2216|2
+17.20-18.05|инф. час|`,
+  mon8: `9.50-11.30|анатомия|449
+11.50-13.30|осн. права|449
+13.40-15.20|защита от ЧС|449
+15.30-17.10|латинский|215|1
+15.30-17.10|ОЗ и ЗО|2216|2
+17.20-18.05|инф. час|`,
+
+  tue1: `9.50-11.30|физра|
+11.50-13.30|охрана труда|449
+13.40-15.20|пропедевтика|449
+@khc
+@tail_ps`,
+  tue2: `9.50-11.30|физра|
+11.50-13.30|охрана труда|449
+13.40-15.20|пропедевтика|449
+@khc
+@tail_an`,
+  tue3: `9.50-11.30|физра|
+11.50-13.30|фарм|449
+13.40-15.20|пропедевтика|449
+@khc
+@tail_ps`,
+  tue4: `9.50-11.30|физра|
+11.50-13.30|фарм|449
+13.40-15.20|пропедевтика|449
+@khc
+@tail_an`,
+  tue5: `9.50-11.30|физра|
+11.50-13.30|латинский|449
+13.40-15.20|пропедевтика|449
+@khc
+@tail_an`,
+
+  wed1: `8.00-11.30|СД практика|234, 238, 2310
+11.50-13.30|латинский|215|1
+11.50-13.30|фарм|2216|2
+13.40-15.20|психология|449`,
+  wed2: `8.00-11.30|СД практика|234, 238, 2310
+11.50-13.30|фарм|2216|1
+11.50-13.30|латинский|215|2
+13.40-15.20|психология|449`,
+
+  thu1: `8.00-9.40|анатомия|449
+9.50-11.30|ОЗ и ЗО|449
+11.50-13.30|анатомия|215|1
+11.50-13.30|осн. права|217|2
+13.40-15.20|фарм|449`,
+  thu2: `8.00-9.40|анатомия|449
+9.50-11.30|ОЗ и ЗО|449
+11.50-13.30|осн. права|217|1
+11.50-13.30|анатомия|215|2
+13.40-15.20|фарм|449`,
+  thu3: `8.00-9.40|анатомия|449
+9.50-11.30|ОЗ и ЗО|449
+11.50-13.30|анатомия|215|1
+11.50-13.30|осн. права|217|2`,
+  thu4: `8.00-9.40|анатомия|449
+9.50-11.30|ОЗ и ЗО|449
+11.50-13.30|осн. права|217|1
+11.50-13.30|анатомия|215|2`,
+
+  fri1: `8.00-11.30|СД практика|234, 238, 2310
+11.50-13.30|осн. права|449
+13.40-15.20|физра|`,
+  fri2: `8.00-11.30|СД практика|234, 238, 2310
+11.50-13.30|анатомия|449
+13.40-15.20|психология|449`,
+
+  /* вторники с практикой */
+  ptue_a: `9.50-11.30|физра|
+11.50-15.20|СД практика|238, 231|p56
+11.50-15.20|пропедевтика практика|4441|p4
+@khc`,
+  ptue_b: `9.50-11.30|физра|
+11.50-15.20|СД практика|238, 231|p56
+11.50-15.20|пропедевтика практика|421|p4
+@khc`,
+
+  /* четверги с практикой */
+  pthu_h: `8.00-11.30|СД практика|236|p4
+8.00-11.30|пропедевтика практика|419|p5`,
+  pthu_oa: `11.50-13.30|осн. права|217|1
+11.50-13.30|анатомия|215|2`,
+  pthu_ao: `11.50-13.30|анатомия|215|1
+11.50-13.30|осн. права|217|2`,
+  pthu_t: `13.40-15.20|фарм|449
+15.30-19.10|пропедевтика практика|419|p6`,
+};
+
+const RAW = `
+=2
+#07.09
+@mon1
+#08.09
+@tue1
+#09.09
+@wed1
+#10.09
+@thu1
+#11.09
+@fri1
+=3
+#14.09
+@mon2
+#15.09
+@tue2
+#16.09
+@wed2
+#17.09
+@thu2
+#18.09
+@fri2
+=4
+#21.09
+@mon1
+#22.09
+@tue1
+#23.09
+@wed1
+#24.09
+@thu1
+#25.09
+@fri1
+=5
+#28.09
+@mon2
+#29.09
+@tue5
+#30.09
+@wed2
+#01.10
+@thu2
+#02.10
+@fri2
+=6
+#05.10
+@mon3
+#06.10
+@tue3
+#07.10
+@wed1
+#08.10
+@thu3
+#09.10
+@fri1
+=7
+#12.10
+@mon7
+#13.10
+@tue4
+#14.10
+8.00-11.30|СД практика|238, 231|p-4
+11.50-13.30|фарм|2216|1
+11.50-13.30|латинский|215|2
+13.40-15.20|пропедевтика|449
+15.30-19.10|СД практика|234|p4
+#15.10
+@thu4
+#16.10
+@fri2
+=8
+#19.10
+@mon4
+#20.10
+@tue3
+#21.10
+9.50-11.30|ОЗ и ЗО|449
+11.50-13.30|латинский|215|1
+11.50-13.30|фарм|2216|2
+13.40-15.20|психология|449|1
+#22.10
+@thu3
+#23.10
+@fri1
+=9
+#26.10
+@mon5
+#27.10
+@tue4
+#28.10
+8.00-9.40|психология|4412|2
+9.50-11.30|ОЗ и ЗО|449
+11.50-13.30|фарм|2216|1
+11.50-13.30|латинский|215|2
+13.40-15.20|психология|4412|1
+#29.10
+@thu4
+#30.10
+@fri2
+=10
+#02.11
+@mon4
+#03.11
+@tue3
+#04.11
+8.00-9.40|психология|4412|2
+9.50-11.30|ОЗ и ЗО|449
+11.50-13.30|латинский|215|1
+11.50-13.30|фарм|2216|2
+13.40-15.20|психология|449|1
+#05.11
+@thu3
+#06.11
+@fri1
+=11
+#09.11
+@mon5
+#10.11
+@ptue_a
+@tail_an
+#11.11
+8.00-9.40|психология|4412|2
+9.50-11.30|ОЗ и ЗО|449
+11.50-13.30|фарм|2216|1
+11.50-13.30|латинский|215|2
+13.40-15.20|психология|4412|1
+#12.11
+@pthu_h
+@pthu_oa
+@pthu_t
+#13.11
+@fri2
+=12
+#16.11
+@mon6
+#17.11
+@ptue_a
+@tail_ps
+#18.11
+9.50-11.30|охрана труда|449
+11.50-13.30|латинский|215|1
+11.50-13.30|фарм|2216|2
+13.40-15.20|психология|449|1
+#19.11
+@pthu_h
+@pthu_ao
+@pthu_t
+#20.11
+@fri1
+=13
+#23.11
+@mon8
+#24.11
+@ptue_b
+@tail_an
+#25.11
+8.00-9.40|ОЗ и ЗО|2216|2
+9.50-11.30|охрана труда|449
+11.50-13.30|фарм|2216|1
+11.50-13.30|латинский|215|2
+13.40-15.20|защита от ЧС|444|1
+#26.11
+@pthu_h
+@pthu_oa
+@pthu_t
+#27.11
+@fri2
+=14
+#30.11
+@mon6
+#01.12
+@ptue_a
+@tail_ps
+#02.12
+8.00-9.40|ОЗ и ЗО|2216|2
+9.50-11.30|охрана труда|449
+11.50-13.30|латинский|215|1
+11.50-13.30|фарм|2216|2
+#03.12
+@pthu_h
+@pthu_ao
+@pthu_t
+#04.12
+@fri1
+=15
+#07.12
+@mon8
+#08.12
+@ptue_b
+@tail_an
+#09.12
+8.00-9.40|ОЗ и ЗО|2216|2
+9.50-11.30|охрана труда|449
+11.50-13.30|фарм|2216|1
+11.50-13.30|латинский|215|2
+#10.12
+@pthu_h
+@pthu_oa
+@pthu_t
+#11.12
+@fri2
+=16
+#14.12
+9.50-11.30|анатомия|449
+11.50-13.30|осн. права|449
+13.40-15.20|латинский|215|1
+13.40-15.20|защита от ЧС|217|2
+15.30-17.10|ОЗ и ЗО|2216|1
+15.30-17.10|латинский|4412|2
+17.20-18.05|инф. час|
+#15.12
+@ptue_a
+@tail_ps
+#16.12
+8.00-9.40|охрана труда|449
+9.50-11.30|фарм|221
+11.50-13.30|латинский|215|1
+11.50-13.30|фарм|2216|2
+#17.12
+@pthu_h
+@pthu_ao
+@pthu_t
+#18.12
+@fri1
+=17
+#21.12
+9.50-11.30|анатомия|449
+11.50-13.30|осн. права|449
+13.40-15.20|латинский|215|1
+13.40-15.20|защита от ЧС|217|2
+15.30-17.10|охрана труда|227
+17.20-18.05|инф. час|
+#22.12
+@ptue_b
+#23.12
+9.50-11.30|фарм|221|2
+11.50-13.30|фарм|2216|1
+11.50-13.30|латинский|215|2
+13.40-15.20|защита от ЧС|444|1
+#24.12
+@pthu_h
+@pthu_oa
+@pthu_t
+#25.12
+`;
+
+/* ---------- Разбор ---------- */
+const YEAR = 2026;
+const expand = s => s.replace(/^@(\w+)$/gm, (_, k) => expand(M[k]));
+const fixT = t => t.split('-').map(x => { const [h, m] = x.split('.'); return h.padStart(2, '0') + ':' + m; });
+
+const weeks = [];
+expand(RAW).split('\n').forEach(line => {
+  line = line.trim();
+  if (!line) return;
+  if (line[0] === '=') { weeks.push({ n: +line.slice(1), days: [] }); return; }
+  if (line[0] === '#') {
+    const [d, m] = line.slice(1).split('.').map(Number);
+    weeks[weeks.length - 1].days.push({ date: new Date(YEAR, m - 1, d), lessons: [] });
+    return;
+  }
+  const [time, subj, room, tag] = line.split('|');
+  const [from, to] = fixT(time);
+  const day = weeks[weeks.length - 1].days.slice(-1)[0];
+  day.lessons.push({ from, to, subj, room: room || '', tag: tag || '' });
+});
+
+/* ---------- Вспомогательное ---------- */
+const WD = ['Воскресенье','Понедельник','Вторник','Среда','Четверг','Пятница','Суббота'];
+const WDS = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+const MON = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+const MONS = ['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
+
+const HUES = [
+  [/анатом/i, 8], [/фарм/i, 150], [/психол/i, 285], [/пропедевт/i, 195], [/СД/i, 215],
+  [/ОЗ и ЗО/i, 40], [/права/i, 25], [/латин/i, 335], [/физра/i, 100], [/охрана/i, 55],
+  [/ЧС/i, 0], [/инф|курат/i, 230]
+];
+const hue = s => { const h = HUES.find(([r]) => r.test(s)); return h ? h[1] : 200; };
+
+const TAGS = {
+  '1': 'подгр. 1', '2': 'подгр. 2', 'p4': 'подгр. 4', 'p5': 'подгр. 5', 'p6': 'подгр. 6',
+  'p56': 'подгр. 5, 6', 'p-4': 'кроме подгр. 4'
+};
+const PRAC = { 'p4': [4], 'p5': [5], 'p6': [6], 'p56': [5, 6], 'p-4': [5, 6] };
+
+const same = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+const range = w => {
+  const a = w.days[0].date, b = w.days[w.days.length - 1].date;
+  return a.getMonth() === b.getMonth()
+    ? `${a.getDate()}–${b.getDate()} ${MONS[a.getMonth()]}`
+    : `${a.getDate()} ${MONS[a.getMonth()]} – ${b.getDate()} ${MONS[b.getMonth()]}`;
+};
+const rangeLong = w => {
+  const a = w.days[0].date, b = w.days[w.days.length - 1].date;
+  return a.getMonth() === b.getMonth()
+    ? `${a.getDate()}–${b.getDate()} ${MON[a.getMonth()]}`
+    : `${a.getDate()} ${MON[a.getMonth()]} – ${b.getDate()} ${MON[b.getMonth()]}`;
+};
+
+/* ---------- Состояние ---------- */
+const today = new Date();
+const state = { w: 0, d: 0, sub: 'all', prac: 'all' };
+
+try {
+  const saved = JSON.parse(localStorage.getItem('rasp-filters') || '{}');
+  if (saved.sub) state.sub = saved.sub;
+} catch (e) {}
+
+function weekIndexFor(date) {
+  let d = new Date(date);
+  if (d.getDay() === 6) d.setDate(d.getDate() + 2);
+  if (d.getDay() === 0) d.setDate(d.getDate() + 1);
+  for (let i = 0; i < weeks.length; i++) {
+    if (weeks[i].days.some(x => same(x.date, d))) return i;
+  }
+  if (d < weeks[0].days[0].date) return 0;
+  return weeks.length - 1;
+}
+function dayIndexFor(wi, date) {
+  const i = weeks[wi].days.findIndex(x => same(x.date, date));
+  if (i >= 0) return i;
+  if (date.getDay() === 6 || date.getDay() === 0 || date < weeks[wi].days[0].date) return 0;
+  return 0;
+}
+function goToday() {
+  state.w = weekIndexFor(today);
+  state.d = dayIndexFor(state.w, today);
+  render();
+  const el = document.querySelector('.wk[aria-current="true"]');
+  if (el) el.scrollIntoView({ inline: 'center', block: 'nearest' });
+}
+
+function visible(l) {
+  if (l.tag === '1' || l.tag === '2') return state.sub === 'all' || state.sub === l.tag;
+  if (PRAC[l.tag]) return state.prac === 'all' || PRAC[l.tag].includes(+state.prac);
+  return true;
+}
+const mins = t => +t.slice(0, 2) * 60 + +t.slice(3);
+
+/* ---------- Отрисовка ---------- */
+const $ = id => document.getElementById(id);
+function esc(s) { return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+function render() {
+  const w = weeks[state.w];
+  $('sub').textContent = `Неделя ${w.n} · ${rangeLong(w)}`;
+
+  // недели
+  const curW = weekIndexFor(today);
+  $('weeks').innerHTML = weeks.map((x, i) =>
+    `<button type="button" class="wk${i === curW ? ' now' : ''}" data-i="${i}" ${i === state.w ? 'aria-current="true"' : ''}><b>${x.n}</b><span>${range(x)}</span></button>`
+  ).join('');
+
+  // вкладки дней (мобильные)
+  $('tabs').innerHTML = w.days.map((d, i) =>
+    `<button type="button" role="tab" class="tab${same(d.date, today) ? ' today' : ''}" data-i="${i}" aria-selected="${i === state.d}"><b>${WDS[d.date.getDay()]}</b><span>${d.date.getDate()}</span></button>`
+  ).join('');
+
+  // дни
+  const nowMin = today.getHours() * 60 + today.getMinutes();
+  $('grid').innerHTML = w.days.map((d, i) => {
+    const isToday = same(d.date, today);
+    const ls = d.lessons.filter(visible);
+    const body = ls.length ? ls.map(l => {
+      const live = isToday && nowMin >= mins(l.from) && nowMin < mins(l.to);
+      return `<div class="lesson${live ? ' now' : ''}" style="--c:hsl(${hue(l.subj)} 55% 48%)">
+        <div class="t"><b>${l.from}</b>${l.to}</div>
+        <div>
+          <div class="s">${esc(l.subj)}</div>
+          <div class="m">${l.room ? `<span>ауд. ${esc(l.room)}</span>` : ''}${l.tag ? `<span class="chip">${TAGS[l.tag]}</span>` : ''}${live ? '<span class="live">идёт сейчас</span>' : ''}</div>
+        </div>
+      </div>`;
+    }).join('') : `<div class="empty">Занятий нет</div>`;
+    return `<section class="day${isToday ? ' today' : ''}${i === state.d ? ' active' : ''}">
+      <div class="dh"><b>${WD[d.date.getDay()]}</b><span>${d.date.getDate()} ${MON[d.date.getMonth()]}</span></div>
+      ${body}</section>`;
+  }).join('');
+
+  $('fSub').value = state.sub;
+}
+
+/* ---------- События ---------- */
+$('weeks').addEventListener('click', e => {
+  const b = e.target.closest('.wk'); if (!b) return;
+  state.w = +b.dataset.i;
+  state.d = Math.min(state.d, weeks[state.w].days.length - 1);
+  render();
+  const el = document.querySelector('.wk[aria-current="true"]');
+  if (el) el.scrollIntoView({ inline: 'center', block: 'nearest' });
+});
+$('tabs').addEventListener('click', e => {
+  const b = e.target.closest('.tab'); if (!b) return;
+  state.d = +b.dataset.i; render();
+});
+function saveFilters() { try { localStorage.setItem('rasp-filters', JSON.stringify({ sub: state.sub, prac: state.prac })); } catch (e) {} }
+$('fSub').addEventListener('change', e => { state.sub = e.target.value; saveFilters(); render(); });
+$('todayBtn').addEventListener('click', goToday);
+
+goToday();
+setInterval(() => { today.setTime(Date.now()); render(); }, 60000);
+</script>
+</body>
+</html>
